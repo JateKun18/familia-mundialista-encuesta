@@ -124,47 +124,68 @@ function getToken() {
   return t;
 }
 
-// Revisión inicial
-if (localStorage.getItem('fm_ya_voto')) {
-  document.getElementById('p-main').style.display = 'none';
-  document.getElementById('p-ya').style.display = 'flex';
+// Clave de voto depende de la ronda actual
+// Al resetear, la ronda sube → localStorage no coincide → pueden volver a votar
+let rondaActual = 1;
+
+async function iniciar() {
+  const snap = await db.ref('encuesta/ronda').once('value');
+  rondaActual = snap.val() || 1;
+  const claveRonda = 'fm_voto_r' + rondaActual;
+
+  if (localStorage.getItem(claveRonda)) {
+    document.getElementById('p-main').style.display = 'none';
+    document.getElementById('p-ya').style.display = 'flex';
+  }
+
+  // Escuchar cambio de ronda (cuando el admin resetea)
+  db.ref('encuesta/ronda').on('value', snap => {
+    const nuevaRonda = snap.val() || 1;
+    if (nuevaRonda !== rondaActual) {
+      rondaActual = nuevaRonda;
+      // Ronda nueva → habilitar votación de nuevo
+      document.getElementById('p-main').style.display = 'flex';
+      document.getElementById('p-ya').style.display = 'none';
+      document.getElementById('p-ok').style.display = 'none';
+      document.getElementById('btn-si').disabled = false;
+      document.getElementById('btn-no').disabled = false;
+    }
+  });
 }
+iniciar();
 
 async function votar(opcion) {
-  if (localStorage.getItem('fm_ya_voto')) {
+  const claveRonda = 'fm_voto_r' + rondaActual;
+  if (localStorage.getItem(claveRonda)) {
     document.getElementById('p-main').style.display = 'none';
     document.getElementById('p-ya').style.display = 'flex';
     return;
   }
 
-  const token = getToken();
+  const token = getToken() + '_r' + rondaActual;
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('btn-si').disabled = true;
   document.getElementById('btn-no').disabled = true;
 
   try {
-    // Verificar si ya votó en Firebase
     const snap = await db.ref(`encuesta/votantes/${token}`).once('value');
     if (snap.exists()) {
-      localStorage.setItem('fm_ya_voto', '1');
+      localStorage.setItem(claveRonda, '1');
       document.getElementById('loading').style.display = 'none';
       document.getElementById('p-main').style.display = 'none';
       document.getElementById('p-ya').style.display = 'flex';
       return;
     }
 
-    // Registrar voto atómicamente
     const ts = Date.now();
     const updates = {};
     updates[`encuesta/votos/${opcion}`] = firebase.database.ServerValue.increment(1);
     updates['encuesta/votos/total'] = firebase.database.ServerValue.increment(1);
     updates[`encuesta/votantes/${token}`] = true;
     updates[`encuesta/historial/v${ts}`] = { voto: opcion, ts };
-
     await db.ref().update(updates);
 
-    localStorage.setItem('fm_ya_voto', '1');
-    localStorage.setItem('fm_voto', opcion);
+    localStorage.setItem(claveRonda, '1');
     document.getElementById('loading').style.display = 'none';
     mostrarOk(opcion);
 
