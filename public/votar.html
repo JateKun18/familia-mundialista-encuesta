@@ -82,7 +82,7 @@
 <div id="p-ya">
   <div class="ic">⚽</div>
   <h2>¡YA VOTASTE!</h2>
-  <p>Ya registramos tu voto.<br>Solo se permite un voto por persona.</p>
+  <p>Ya registramos tu voto.<br>Cuando el admin abra una nueva ronda<br>podrás votar de nuevo.</p>
 </div>
 
 <!-- Confirmación -->
@@ -115,77 +115,76 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// Token único por dispositivo (permanente)
 function getToken() {
-  let t = localStorage.getItem('fm_token_v2');
+  let t = localStorage.getItem('fm_token_v3');
   if (!t) {
     t = 'fm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
-    localStorage.setItem('fm_token_v2', t);
+    localStorage.setItem('fm_token_v3', t);
   }
   return t;
 }
 
-// Clave de voto depende de la ronda actual
-// Al resetear, la ronda sube → localStorage no coincide → pueden volver a votar
-let rondaActual = 1;
+const TOKEN = getToken();
+let rondaActual = null;
 
-async function iniciar() {
-  const snap = await db.ref('encuesta/ronda').once('value');
-  rondaActual = snap.val() || 1;
-  const claveRonda = 'fm_voto_r' + rondaActual;
-
-  if (localStorage.getItem(claveRonda)) {
-    document.getElementById('p-main').style.display = 'none';
-    document.getElementById('p-ya').style.display = 'flex';
-  }
-
-  // Escuchar cambio de ronda (cuando el admin resetea)
-  db.ref('encuesta/ronda').on('value', snap => {
-    const nuevaRonda = snap.val() || 1;
-    if (nuevaRonda !== rondaActual) {
-      rondaActual = nuevaRonda;
-      // Ronda nueva → habilitar votación de nuevo
-      document.getElementById('p-main').style.display = 'flex';
-      document.getElementById('p-ya').style.display = 'none';
-      document.getElementById('p-ok').style.display = 'none';
-      document.getElementById('btn-si').disabled = false;
-      document.getElementById('btn-no').disabled = false;
-    }
+function pantalla(id) {
+  ['p-main', 'p-ya', 'p-ok'].forEach(p => {
+    document.getElementById(p).style.display = 'none';
   });
+  const el = document.getElementById(id);
+  el.style.display = id === 'p-main' ? 'flex' : 'flex';
+  if (id === 'p-main') {
+    document.getElementById('btn-si').disabled = false;
+    document.getElementById('btn-no').disabled = false;
+  }
 }
-iniciar();
+
+async function verificarEstado(ronda) {
+  // Firebase es la fuente de verdad — si Firebase dice que no votó, puede votar
+  const tokenRonda = TOKEN + '_r' + ronda;
+  const snap = await db.ref('encuesta/votantes/' + tokenRonda).once('value');
+  if (snap.exists()) {
+    pantalla('p-ya');
+  } else {
+    pantalla('p-main');
+  }
+}
+
+// Escuchar la ronda en tiempo real — cuando admin resetea, la ronda sube
+db.ref('encuesta/ronda').on('value', async snap => {
+  const ronda = snap.val() || 1;
+  if (ronda !== rondaActual) {
+    rondaActual = ronda;
+    await verificarEstado(ronda);
+  }
+});
 
 async function votar(opcion) {
-  const claveRonda = 'fm_voto_r' + rondaActual;
-  if (localStorage.getItem(claveRonda)) {
-    document.getElementById('p-main').style.display = 'none';
-    document.getElementById('p-ya').style.display = 'flex';
-    return;
-  }
-
-  const token = getToken() + '_r' + rondaActual;
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('btn-si').disabled = true;
   document.getElementById('btn-no').disabled = true;
 
   try {
-    const snap = await db.ref(`encuesta/votantes/${token}`).once('value');
+    const tokenRonda = TOKEN + '_r' + rondaActual;
+
+    // Verificar en Firebase que no haya votado
+    const snap = await db.ref('encuesta/votantes/' + tokenRonda).once('value');
     if (snap.exists()) {
-      localStorage.setItem(claveRonda, '1');
       document.getElementById('loading').style.display = 'none';
-      document.getElementById('p-main').style.display = 'none';
-      document.getElementById('p-ya').style.display = 'flex';
+      pantalla('p-ya');
       return;
     }
 
+    // Registrar voto
     const ts = Date.now();
-    const updates = {};
-    updates[`encuesta/votos/${opcion}`] = firebase.database.ServerValue.increment(1);
-    updates['encuesta/votos/total'] = firebase.database.ServerValue.increment(1);
-    updates[`encuesta/votantes/${token}`] = true;
-    updates[`encuesta/historial/v${ts}`] = { voto: opcion, ts };
-    await db.ref().update(updates);
+    await db.ref().update({
+      ['encuesta/votos/' + opcion]: firebase.database.ServerValue.increment(1),
+      'encuesta/votos/total': firebase.database.ServerValue.increment(1),
+      ['encuesta/votantes/' + tokenRonda]: true,
+      ['encuesta/historial/v' + ts]: { voto: opcion, ts }
+    });
 
-    localStorage.setItem(claveRonda, '1');
     document.getElementById('loading').style.display = 'none';
     mostrarOk(opcion);
 
@@ -193,7 +192,7 @@ async function votar(opcion) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('btn-si').disabled = false;
     document.getElementById('btn-no').disabled = false;
-    alert('Error de conexión. Verifica tu internet e intenta de nuevo.');
+    alert('Error de conexión. Intenta de nuevo.');
   }
 }
 
