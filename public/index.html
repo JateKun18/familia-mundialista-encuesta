@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Familia Mundialista — VOTA</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Exo+2:wght@400;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: linear-gradient(160deg, #001233 0%, #002D72 45%, #001840 100%);
+    color: #fff;
+    font-family: 'Exo 2', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    grid-template-rows: auto 1fr auto auto;
+    height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    grid-column: 1/2; grid-row: 1;
+    padding: 24px 40px 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .titulo-evento { font-family: 'Bebas Neue', sans-serif; font-size: 3.6rem; line-height: 1; letter-spacing: 2px; }
+  .titulo-evento span { color: #FFD700; display: block; }
+  .titulo-evento em { font-style: normal; background: #CC0000; padding: 2px 14px; border-radius: 6px; font-size: 2rem; letter-spacing: 4px; display: inline-block; margin-top: 4px; }
+  .spin { font-size: 2.6rem; animation: spin 4s linear infinite; display: inline-block; }
+  .spin.rev { animation-direction: reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* QR PANEL */
+  .qr-panel {
+    grid-column: 2/3; grid-row: 1/5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px 20px 20px 8px; gap: 14px;
+  }
+  .qr-label { font-size: 0.9rem; font-weight: 700; color: #FFD700; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
+  .qr-box {
+    background: #fff; border-radius: 16px; padding: 12px;
+    border: 5px solid #FFD700;
+    box-shadow: 0 0 0 4px rgba(255,215,0,0.3), 0 0 40px rgba(255,215,0,0.5);
+    animation: glowQR 2.5s ease-in-out infinite;
+  }
+  @keyframes glowQR {
+    0%,100% { box-shadow: 0 0 0 4px rgba(255,215,0,0.3), 0 0 40px rgba(255,215,0,0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(255,215,0,0.5), 0 0 80px rgba(255,215,0,0.8); }
+  }
+  #qr-img { display: block; width: 200px; height: 200px; border-radius: 8px; }
+  .qr-instruccion { font-size: 0.8rem; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.5; max-width: 190px; }
+  .qr-url { font-size: 0.65rem; color: rgba(255,215,0,0.5); text-align: center; word-break: break-all; max-width: 200px; margin-top: 4px; }
+
+  /* PREGUNTA */
+  .pregunta-section {
+    grid-column: 1/2; grid-row: 2;
+    padding: 6px 40px 0;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .pregunta-label { font-size: 0.8rem; color: #FFD700; letter-spacing: 4px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; }
+  .pregunta-texto { font-family: 'Bebas Neue', sans-serif; font-size: 3.6rem; line-height: 1.05; letter-spacing: 2px; text-shadow: 0 4px 20px rgba(0,0,0,0.5); max-width: 860px; }
+  .pregunta-texto .hl { color: #FFD700; }
+
+  /* BARRAS */
+  .barras-section {
+    grid-column: 1/2; grid-row: 3;
+    padding: 12px 40px 8px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .voto-row { display: flex; align-items: center; gap: 18px; }
+
+  .voto-label { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; letter-spacing: 3px; min-width: 80px; text-align: right; }
+  .voto-label.si { color: #2ECC71; text-shadow: 0 0 20px rgba(46,204,113,0.7); }
+  .voto-label.no { color: #E74C3C; text-shadow: 0 0 20px rgba(231,76,60,0.7); }
+
+  .barra-wrap { flex: 1; position: relative; }
+  .barra-bg {
+    background: rgba(255,255,255,0.07);
+    border-radius: 50px; height: 82px;
+    overflow: hidden; border: 2px solid rgba(255,255,255,0.1);
+  }
+  .barra-fill {
+    height: 100%; border-radius: 50px;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    width: 0%;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 20px; position: relative; overflow: hidden; min-width: 80px;
+  }
+  .barra-fill::after { content: ''; position: absolute; top:0; left:0; right:0; height:40%; background:rgba(255,255,255,0.12); border-radius:50px 50px 0 0; }
+  .si-fill { background: linear-gradient(90deg, #1a8f4e, #27AE60, #2ECC71, #F1C40F); box-shadow: 0 0 30px rgba(46,204,113,0.4); }
+  .no-fill { background: linear-gradient(90deg, #922B21, #C0392B, #E74C3C, #FF7F7F); box-shadow: 0 0 30px rgba(192,57,43,0.4); }
+
+  .barra-balon { font-size: 2rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); animation: bounce 0.8s ease-in-out infinite alternate; flex-shrink:0; }
+  @keyframes bounce { from{transform:scale(1)} to{transform:scale(1.18)} }
+
+  .barra-pct { position: absolute; right: 14px; top:50%; transform:translateY(-50%); font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:rgba(255,255,255,0.9); text-shadow:0 2px 8px rgba(0,0,0,0.6); z-index:2; pointer-events:none; }
+
+  .barra-count { font-family:'Bebas Neue',sans-serif; font-size:2.2rem; min-width:100px; letter-spacing:2px; color:rgba(255,255,255,0.65); }
+  .barra-count span { font-size:0.75rem; font-family:'Exo 2',sans-serif; font-weight:700; letter-spacing:1px; color:rgba(255,255,255,0.35); display:block; }
+
+  /* TOTAL */
+  .total-section {
+    grid-column: 1/2; grid-row: 4;
+    padding: 4px 40px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .total-txt { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:rgba(255,255,255,0.5); letter-spacing:3px; }
+  .total-num { font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:#FFD700; letter-spacing:2px; text-shadow:0 0 20px rgba(255,215,0,0.6); transition:all 0.3s; }
+
+  /* VOTE BURST */
+  .vote-burst { position:fixed; bottom:60px; font-size:3rem; pointer-events:none; z-index:200; animation:burstUp 3s ease-out forwards; }
+  @keyframes burstUp { 0%{transform:translateY(0) scale(0.4) rotate(-20deg);opacity:1} 20%{transform:translateY(-80px) scale(1.1) rotate(10deg);opacity:1} 100%{transform:translateY(-620px) scale(0.6) rotate(40deg);opacity:0} }
+
+  .plus-one { position:fixed; font-family:'Bebas Neue',sans-serif; font-size:2.4rem; pointer-events:none; z-index:300; animation:plusUp 1.2s ease-out forwards; }
+  .plus-one.si{color:#2ECC71;text-shadow:0 0 20px rgba(46,204,113,0.8);}
+  .plus-one.no{color:#E74C3C;text-shadow:0 0 20px rgba(231,76,60,0.8);}
+  @keyframes plusUp { 0%{transform:translateY(0) scale(0.8);opacity:1} 100%{transform:translateY(-120px) scale(1.2);opacity:0} }
+
+  .barra-pulse { animation: barPulse 0.4s ease-out; }
+  @keyframes barPulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.6)} }
+
+  .milestone-banner { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0); z-index:500; background:linear-gradient(135deg,#FFD700,#FF8C00); color:#001840; font-family:'Bebas Neue',sans-serif; font-size:3.8rem; padding:20px 60px; border-radius:20px; text-align:center; box-shadow:0 0 80px rgba(255,215,0,0.8); letter-spacing:4px; display:none; }
+  .milestone-banner.show { display:block; animation:milAnim 3.2s ease-in-out forwards; }
+  @keyframes milAnim { 0%{transform:translate(-50%,-50%) scale(0)} 15%{transform:translate(-50%,-50%) scale(1.1)} 25%{transform:translate(-50%,-50%) scale(1)} 75%{transform:translate(-50%,-50%) scale(1);opacity:1} 100%{transform:translate(-50%,-50%) scale(0.8);opacity:0} }
+
+  /* ESTADO */
+  .estado-badge { position:fixed; top:16px; right:280px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:4px 14px; font-size:0.7rem; color:rgba(255,255,255,0.4); letter-spacing:2px; z-index:10; }
+  .dot { display:inline-block; width:6px; height:6px; background:#2ECC71; border-radius:50%; margin-right:6px; animation:blink 1.4s ease-in-out infinite; }
+  .dot.offline { background:#E74C3C; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="estado-badge"><span class="dot" id="status-dot"></span><span id="status-txt">CONECTANDO...</span></div>
+
+<div class="layout">
+
+  <div class="header">
+    <span class="spin">⚽</span>
+    <div class="titulo-evento">
+      <span>Familia</span>
+      <em>MUNDIALISTA</em>
+    </div>
+    <span class="spin rev">⚽</span>
+  </div>
+
+  <div class="qr-panel">
+    <div class="qr-label">📱 Escanea y vota</div>
+    <div class="qr-box">
+      <img id="qr-img" src="" alt="QR" width="200" height="200">
+    </div>
+    <div class="qr-instruccion">Abre la cámara de tu celular y escanea el código</div>
+    <div class="qr-url" id="qr-url"></div>
+  </div>
+
+  <div class="pregunta-section">
+    <div class="pregunta-label">⚡ La pregunta del día</div>
+    <div class="pregunta-texto">¿QUISIERAS VER EL PARTIDO DE <span class="hl">ECUADOR</span> EN LA PANTALLA GRANDE?</div>
+  </div>
+
+  <div class="barras-section">
+    <div class="voto-row">
+      <div class="voto-label si">✓ SÍ</div>
+      <div class="barra-wrap">
+        <div class="barra-bg" id="bg-si">
+          <div class="barra-fill si-fill" id="fill-si" style="width:0%"><span class="barra-balon">⚽</span></div>
+          <div class="barra-pct" id="pct-si">–</div>
+        </div>
+      </div>
+      <div class="barra-count" id="cnt-si">0<span>votos</span></div>
+    </div>
+    <div class="voto-row">
+      <div class="voto-label no">✗ NO</div>
+      <div class="barra-wrap">
+        <div class="barra-bg" id="bg-no">
+          <div class="barra-fill no-fill" id="fill-no" style="width:0%"><span class="barra-balon">⚽</span></div>
+          <div class="barra-pct" id="pct-no">–</div>
+        </div>
+      </div>
+      <div class="barra-count" id="cnt-no">0<span>votos</span></div>
+    </div>
+  </div>
+
+  <div class="total-section">
+    <div class="total-txt">TOTAL PARTICIPANTES:</div>
+    <div class="total-num" id="total-num">0</div>
+    <div class="total-txt">PERSONAS</div>
+  </div>
+
+</div>
+
+<div class="milestone-banner" id="milestone"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONFIGURACION FIREBASE — pegar tu config aquí
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "PEGAR_API_KEY",
+  authDomain: "PEGAR_AUTH_DOMAIN",
+  databaseURL: "PEGAR_DATABASE_URL",
+  projectId: "PEGAR_PROJECT_ID",
+  storageBucket: "PEGAR_STORAGE_BUCKET",
+  messagingSenderId: "PEGAR_SENDER_ID",
+  appId: "PEGAR_APP_ID"
+};
+// ═══════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// QR dinámico
+(function() {
+  const url = window.location.origin + '/votar';
+  document.getElementById('qr-url').textContent = url;
+  document.getElementById('qr-img').src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&color=001840&bgcolor=ffffff&margin=10`;
+})();
+
+// Canvas fondo
+(function() {
+  const cv = document.getElementById('bg-canvas');
+  const ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const balls = Array.from({length:24}, () => ({
+    x: Math.random()*innerWidth, y: innerHeight + Math.random()*innerHeight,
+    size: 14+Math.random()*20, speed: 0.3+Math.random()*0.6,
+    rot: Math.random()*Math.PI*2, rotS: (Math.random()-0.5)*0.02,
+    op: 0.05+Math.random()*0.1
+  }));
+  function draw() {
+    ctx.clearRect(0,0,cv.width,cv.height);
+    balls.forEach(b => {
+      b.y -= b.speed; b.rot += b.rotS;
+      if(b.y < -60) { b.y = cv.height+20; b.x = Math.random()*cv.width; }
+      ctx.save(); ctx.globalAlpha = b.op; ctx.font = `${b.size}px serif`;
+      ctx.translate(b.x,b.y); ctx.rotate(b.rot);
+      ctx.fillText('⚽', -b.size/2, b.size/2); ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+  addEventListener('resize', () => { cv.width=innerWidth; cv.height=innerHeight; });
+})();
+
+// Estado
+let prevTotal = 0;
+const milestones = new Set([50,100,150,200,300,400,500]);
+
+function actualizar(data) {
+  const si = data.si || 0, no = data.no || 0, total = data.total || 0;
+  const pSi = total>0 ? Math.round(si/total*100) : 0;
+  const pNo = total>0 ? Math.round(no/total*100) : 0;
+
+  document.getElementById('fill-si').style.width = Math.max(pSi,2)+'%';
+  document.getElementById('fill-no').style.width = Math.max(pNo,2)+'%';
+  document.getElementById('pct-si').textContent = total>0 ? pSi+'%' : '–';
+  document.getElementById('pct-no').textContent = total>0 ? pNo+'%' : '–';
+  document.getElementById('cnt-si').innerHTML = si+'<span>votos</span>';
+  document.getElementById('cnt-no').innerHTML = no+'<span>votos</span>';
+  document.getElementById('total-num').textContent = total;
+
+  if (total > prevTotal) {
+    const tipo = si > (prevTotal>0 ? Math.round(si/total*prevTotal) : 0) ? 'si' : 'no';
+    spawnBurst(); pulsarBarra(data.ultimoVoto || 'si'); spawnPlus(data.ultimoVoto || 'si');
+    if (milestones.has(total)) milestone(total);
+  }
+  prevTotal = total;
+}
+
+function spawnBurst() {
+  const n = Math.random()<0.25 ? 3 : 1;
+  for(let i=0;i<n;i++) setTimeout(()=>{
+    const el = document.createElement('div');
+    el.className='vote-burst';
+    el.textContent='⚽';
+    el.style.left = (10+Math.random()*80)+'%';
+    el.style.fontSize = (2.2+Math.random()*2)+'rem';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3200);
+  }, i*180);
+}
+
+function pulsarBarra(tipo) {
+  const el = document.getElementById(`bg-${tipo||'si'}`);
+  if(!el) return;
+  el.classList.remove('barra-pulse'); void el.offsetWidth;
+  el.classList.add('barra-pulse');
+  setTimeout(()=>el.classList.remove('barra-pulse'),500);
+}
+
+function spawnPlus(tipo) {
+  const el = document.createElement('div');
+  el.className='plus-one '+(tipo||'si');
+  el.textContent='+1';
+  const ref = document.getElementById(`fill-${tipo||'si'}`);
+  if(!ref) return;
+  const r = ref.getBoundingClientRect();
+  el.style.left=(r.left+Math.random()*r.width*0.5)+'px';
+  el.style.top=r.top+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+function milestone(n) {
+  const m = document.getElementById('milestone');
+  m.textContent = `🎉 ¡${n} VOTOS! 🎉`;
+  m.className='milestone-banner show';
+  for(let i=0;i<14;i++) setTimeout(spawnBurst,i*80);
+  setTimeout(()=>m.className='milestone-banner',3400);
+}
+
+// Firebase listener
+db.ref('encuesta/votos').on('value', snap => {
+  const data = snap.val() || {si:0,no:0,total:0};
+  actualizar(data);
+  document.getElementById('status-dot').className='dot';
+  document.getElementById('status-txt').textContent='EN VIVO';
+}, err => {
+  document.getElementById('status-dot').className='dot offline';
+  document.getElementById('status-txt').textContent='SIN CONEXIÓN';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stats — Familia Mundialista</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Exo+2:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#0a0a1a;color:#fff;font-family:'Exo 2',sans-serif;min-height:100vh;padding:36px 20px;}
+  .wrap{max-width:680px;margin:0 auto;}
+  h1{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:#FFD700;letter-spacing:4px;margin-bottom:4px;}
+  .sub{color:rgba(255,255,255,0.35);font-size:0.82rem;margin-bottom:28px;}
+  .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:26px;margin-bottom:18px;}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+  h2{font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:3px;color:#FFD700;}
+  .live{font-size:0.72rem;color:#2ECC71;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+  .dot{display:inline-block;width:7px;height:7px;background:#2ECC71;border-radius:50%;margin-right:5px;animation:blink 1.2s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:22px;}
+  .stat-box{text-align:center;}
+  .stat-n{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:2px;}
+  .stat-n.si{color:#2ECC71;} .stat-n.no{color:#E74C3C;} .stat-n.tot{color:#FFD700;}
+  .stat-l{font-size:0.7rem;color:rgba(255,255,255,0.35);letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+  .bar-mini{height:10px;border-radius:20px;margin:6px 0 3px;}
+  .bar-si{background:linear-gradient(90deg,#27AE60,#2ECC71);}
+  .bar-no{background:linear-gradient(90deg,#C0392B,#E74C3C);}
+  .bar-pct{font-size:0.72rem;color:#2ECC71;} .bar-pct.no{color:#E74C3C;}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn{padding:10px 20px;border-radius:10px;border:none;font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:filter 0.15s;}
+  .btn:hover{filter:brightness(1.2);}
+  .btn-csv{background:#FFD700;color:#001840;}
+  .btn-reset{background:#C0392B;color:#fff;}
+  .btn-ref{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);}
+  ul{list-style:none;max-height:340px;overflow-y:auto;}
+  ul::-webkit-scrollbar{width:3px;} ul::-webkit-scrollbar-track{background:rgba(255,255,255,0.04);} ul::-webkit-scrollbar-thumb{background:#FFD700;border-radius:4px;}
+  li{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem;}
+  li:last-child{border-bottom:none;}
+  .badge{padding:2px 12px;border-radius:20px;font-weight:700;font-size:0.75rem;letter-spacing:2px;}
+  .badge-si{background:rgba(46,204,113,0.15);color:#2ECC71;}
+  .badge-no{background:rgba(231,76,60,0.15);color:#E74C3C;}
+  .hist-t{color:rgba(255,255,255,0.25);font-size:0.72rem;}
+  .hist-n{color:rgba(255,255,255,0.18);font-size:0.68rem;min-width:32px;text-align:right;}
+  .no-data{text-align:center;color:rgba(255,255,255,0.2);padding:36px;font-size:0.85rem;}
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center;}
+  .modal{background:#12122a;border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:30px;max-width:380px;width:90%;text-align:center;}
+  .modal h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:#E74C3C;margin-bottom:10px;letter-spacing:3px;}
+  .modal p{color:rgba(255,255,255,0.5);margin-bottom:18px;font-size:0.85rem;}
+  .modal input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:0.95rem;margin-bottom:14px;font-family:'Exo 2',sans-serif;}
+  .modal-btns{display:flex;gap:10px;justify-content:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚽ ESTADÍSTICAS</h1>
+  <p class="sub">Familia Mundialista — Panel de resultados</p>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>RESULTADOS</h2>
+      <span class="live"><span class="dot"></span>EN VIVO</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="stat-n si" id="s-si">0</div>
+        <div class="stat-l">✓ SÍ</div>
+        <div class="bar-mini bar-si" id="b-si" style="width:0%"></div>
+        <div class="bar-pct" id="p-si">0%</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-n tot" id="s-tot">0</div>
+        <div class="stat-l">Total votos</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-n no" id="s-no">0</div>
+        <div class="stat-l">✗ NO</div>
+        <div class="bar-mini bar-no" id="b-no" style="width:0%"></div>
+        <div class="bar-pct no" id="p-no">0%</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ref" onclick="cargar()">↻ Actualizar</button>
+      <button class="btn btn-csv" onclick="exportCSV()">⬇ Exportar CSV</button>
+      <button class="btn btn-reset" onclick="document.getElementById('modal').style.display='flex'">🗑 Resetear</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-bottom:14px;">HISTORIAL DE VOTOS</h2>
+    <ul id="hist"><li class="no-data">Cargando...</li></ul>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3>⚠ RESETEAR</h3>
+    <p>Esto borrará todos los votos permanentemente.</p>
+    <input type="password" id="clave" placeholder="Contraseña admin">
+    <div class="modal-btns">
+      <button class="btn btn-ref" onclick="document.getElementById('modal').style.display='none'">Cancelar</button>
+      <button class="btn btn-reset" onclick="resetear()">Borrar todo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONFIGURACION FIREBASE
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "PEGAR_API_KEY",
+  authDomain: "PEGAR_AUTH_DOMAIN",
+  databaseURL: "PEGAR_DATABASE_URL",
+  projectId: "PEGAR_PROJECT_ID",
+  storageBucket: "PEGAR_STORAGE_BUCKET",
+  messagingSenderId: "PEGAR_SENDER_ID",
+  appId: "PEGAR_APP_ID"
+};
+const ADMIN_CLAVE = "ecuador2026";
+// ═══════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let historialData = [];
+
+function renderizar(data) {
+  const si = data.votos?.si || 0, no = data.votos?.no || 0, total = data.votos?.total || 0;
+  const pSi = total>0 ? Math.round(si/total*100) : 0;
+  const pNo = total>0 ? Math.round(no/total*100) : 0;
+  document.getElementById('s-si').textContent = si;
+  document.getElementById('s-no').textContent = no;
+  document.getElementById('s-tot').textContent = total;
+  document.getElementById('b-si').style.width = pSi+'%';
+  document.getElementById('b-no').style.width = pNo+'%';
+  document.getElementById('p-si').textContent = pSi+'%';
+  document.getElementById('p-no').textContent = pNo+'%';
+
+  const hist = data.historial ? Object.values(data.historial).sort((a,b)=>b.ts-a.ts) : [];
+  historialData = hist;
+  const ul = document.getElementById('hist');
+  if (!hist.length) { ul.innerHTML='<li class="no-data">No hay votos aún</li>'; return; }
+  ul.innerHTML = hist.map((h,i) => {
+    const d = new Date(h.ts);
+    const hora = d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return `<li>
+      <span class="hist-n">#${hist.length-i}</span>
+      <span class="badge badge-${h.voto}">${h.voto==='si'?'✓ SÍ':'✗ NO'}</span>
+      <span class="hist-t">${hora}</span>
+    </li>`;
+  }).join('');
+}
+
+function cargar() {
+  db.ref('encuesta').once('value').then(snap => renderizar(snap.val() || {}));
+}
+
+// Listener en tiempo real
+db.ref('encuesta').on('value', snap => renderizar(snap.val() || {}));
+
+function exportCSV() {
+  if (!historialData.length) { alert('No hay datos para exportar'); return; }
+  let csv = 'numero,voto,hora\n';
+  [...historialData].reverse().forEach((h,i) => {
+    const d = new Date(h.ts);
+    const hora = d.toLocaleString('es');
+    csv += `${i+1},${h.voto},${hora}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `votos_familia_mundialista_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+async function resetear() {
+  const clave = document.getElementById('clave').value;
+  if (clave !== ADMIN_CLAVE) { alert('Contraseña incorrecta'); return; }
+  await db.ref('encuesta').set({ votos: {si:0, no:0, total:0}, historial: null, votantes: null });
+  document.getElementById('modal').style.display = 'none';
+  document.getElementById('clave').value = '';
+}
+</script>
+</body>
+</html>

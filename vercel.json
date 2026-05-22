@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/votar", "destination": "/votar.html" },
+    { "source": "/stats", "destination": "/stats.html" }
+  ]
+}
