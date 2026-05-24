@@ -88,7 +88,7 @@ body {
 .layout {
   position: relative; z-index: 10;
   display: grid;
-  grid-template-columns: 1fr 390px;
+  grid-template-columns: 1fr 700px;
   grid-template-rows: 130px 1fr auto;
   height: 100vh;
 }
@@ -165,10 +165,10 @@ body {
   gap: 13px;
 }
 .qr-titulo {
-  font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; letter-spacing: 4px;
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 5px;
   color: #FFD700; text-align: center; text-shadow: 0 0 20px rgba(255,215,0,0.5);
 }
-.qr-sub { font-size: 0.7rem; color: rgba(255,255,255,0.4); text-align: center; letter-spacing: 1px; }
+.qr-sub { font-size: 0.88rem; color: rgba(255,255,255,0.4); text-align: center; letter-spacing: 1px; }
 
 .qr-box {
   background: #fff; border-radius: 18px; padding: 13px;
@@ -180,8 +180,8 @@ body {
   0%,100% { box-shadow: 0 0 0 7px rgba(255,215,0,0.12), 0 0 60px rgba(255,215,0,0.45); }
   50% { box-shadow: 0 0 0 12px rgba(255,215,0,0.22), 0 0 100px rgba(255,215,0,0.75); }
 }
-#qr-img { display: block; width: 270px; height: 270px; border-radius: 10px; }
-.qr-info { font-size: 0.72rem; color: rgba(255,255,255,0.55); text-align: center; line-height: 1.6; max-width: 275px; }
+#qr-img { display: block; width: 560px; height: 560px; border-radius: 14px; }
+.qr-info { font-size: 0.85rem; color: rgba(255,255,255,0.55); text-align: center; line-height: 1.6; max-width: 570px; }
 
 .linea-sep { width: 75%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,215,0,0.25), transparent); }
 
@@ -189,7 +189,7 @@ body {
 .total-lbl { font-size: 0.68rem; color: rgba(255,255,255,0.3); letter-spacing: 3px; text-transform: uppercase; }
 .total-num {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 4rem; color: #FFD700; letter-spacing: 2px; line-height: 1;
+  font-size: 5.5rem; color: #FFD700; letter-spacing: 2px; line-height: 1;
   text-shadow: 0 0 40px rgba(255,215,0,0.7);
   transition: all 0.3s;
 }
@@ -394,7 +394,7 @@ body {
     <div class="qr-titulo">📱 ESCANEA Y VOTA</div>
     <div class="qr-sub">Con la cámara de tu celular</div>
     <div class="qr-box">
-      <img id="qr-img" src="" alt="QR" width="270" height="270">
+      <img id="qr-img" src="" alt="QR" width="560" height="560">
     </div>
     <div class="qr-info">Abre la cámara · Apunta aquí · Toca SÍ o NO</div>
     <div class="linea-sep"></div>
@@ -481,7 +481,7 @@ const db = firebase.database();
 (function(){
   const url = window.location.origin + '/votar';
   document.getElementById('qr-img').src =
-    `https://api.qrserver.com/v1/create-qr-code/?size=270x270&data=${encodeURIComponent(url)}&color=001233&bgcolor=ffffff&margin=8`;
+    `https://api.qrserver.com/v1/create-qr-code/?size=560x560&data=${encodeURIComponent(url)}&color=001233&bgcolor=ffffff&margin=8`;
 })();
 
 // Balones de fondo flotando — emoji nativo en canvas
